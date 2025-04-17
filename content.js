@@ -33,36 +33,18 @@ function injectPageButton() {
 
     wrapper.innerHTML = `
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <button id="fillBtn" type="button" style="
-          background-color: #2563eb;
-          color: white;
-          padding: 8px 12px;
-          border: none;
-          border-radius: 6px;
-          font-size: 14px;
-          cursor: pointer;">🔁 Fill Page</button>
-
-        <button id="saveBtn" type="button" style="
-          background-color: #22c55e;
-          color: white;
-          padding: 8px 12px;
-          border: none;
-          border-radius: 6px;
-          font-size: 14px;
-          cursor: pointer;">💾 Save</button>
-
-        <button id="nextBtn" type="button" style="
-          background-color: #f97316;
-          color: white;
-          padding: 8px 12px;
-          border: none;
-          border-radius: 6px;
-          font-size: 14px;
-          cursor: pointer;">➡️ Next Page</button>
+        <button id="fillBtn" type="button" style="background-color:#2563eb;color:white;padding:8px 12px;border:none;border-radius:6px;font-size:14px;cursor:pointer;">🔁 Fill Page</button>
+        <button id="saveBtn" type="button" style="background-color:#22c55e;color:white;padding:8px 12px;border:none;border-radius:6px;font-size:14px;cursor:pointer;">💾 Save</button>
+        <button id="nextBtn" type="button" style="background-color:#f97316;color:white;padding:8px 12px;border:none;border-radius:6px;font-size:14px;cursor:pointer;">➡️ Next Page</button>
+        <button id="loadCsvBtn" type="button" style="background-color:#0ea5e9;color:white;padding:8px 12px;border:none;border-radius:6px;font-size:14px;cursor:pointer;">📥 Load CSV</button>
       </div>
+      <input type="file" id="hiddenCsvInput" accept=".csv" style="display:none;" />
     `;
 
-    // === Add actions
+    const form = saveBtn.closest('form');
+    form?.parentNode.insertBefore(wrapper, form);
+
+    // === Buttons
     wrapper.querySelector('#fillBtn').addEventListener('click', () => {
       console.log('[Autofill] 🔁 Fill button clicked');
       startFillingProcess();
@@ -88,13 +70,46 @@ function injectPageButton() {
       }
     });
 
-    // Insert above the form
-    const form = saveBtn.closest('form');
-    form?.parentNode.insertBefore(wrapper, form);
+    // === Load CSV from file
+    const csvInput = wrapper.querySelector('#hiddenCsvInput');
+    wrapper.querySelector('#loadCsvBtn').addEventListener('click', () => {
+      csvInput.click();
+    });
 
-    console.log('[Autofill] ✅ Control panel injected');
+    csvInput.addEventListener('change', () => {
+      const file = csvInput.files[0];
+      if (!file || !file.name.endsWith('.csv')) {
+        alert('❌ Please select a valid .csv file');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const csvText = e.target.result;
+        if (!csvText || !csvText.includes(',')) {
+          alert('⚠️ Invalid CSV format');
+          return;
+        }
+
+        await chrome.storage.local.set({
+          autofillCSV: csvText
+        });
+
+        console.log('[Autofill] 📥 CSV loaded from in-page upload. Starting autofill...');
+        startFillingProcess();
+      };
+
+      reader.onerror = () => {
+        alert('❌ Error reading file');
+      };
+
+      reader.readAsText(file);
+    });
+
+    console.log('[Autofill] ✅ Control panel injected with Fill / Save / Next / Load CSV');
   }, 500);
 }
+
 
 
 async function startFillingProcess() {
