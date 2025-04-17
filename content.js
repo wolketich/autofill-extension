@@ -1,4 +1,4 @@
-// === content.js — Smart Autofill Extension with Banner + Error Log ===
+// === content.js — Smart Autofill Extension with Full Panel, Banner, Auto Mode, and Error Logging ===
 
 console.log('[Autofill] ✅ content.js loaded');
 
@@ -20,18 +20,73 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+function injectAutofillPanel() {
+  const existing = document.getElementById('autofill-controls');
+  if (existing) return;
+
+  const interval = setInterval(() => {
+    const saveBtn = document.querySelector('input.btn-success[value="Save"]');
+    if (!saveBtn) return;
+    clearInterval(interval);
+
+    const wrapper = document.createElement('div');
+    wrapper.id = 'autofill-controls';
+    wrapper.style.margin = '12px 0';
+
+    wrapper.innerHTML = `
+      <div style="border: 1px solid #ccc; padding: 10px; border-radius: 8px; background: #f9fafb">
+        <div id="autofill-banner" style="background:#2563eb;color:white;padding:6px 12px;font-weight:bold;border-radius:6px;margin-bottom:10px;">📋 Ready to autofill</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="fillBtn" type="button">🔁 Fill Page</button>
+          <button id="saveBtn" type="button">💾 Save</button>
+          <button id="nextBtn" type="button">➡️ Next Page</button>
+          <button id="loadCsvBtn" type="button">📥 Load CSV</button>
+          <button id="autoModeBtn" type="button">🧠 Auto Mode</button>
+        </div>
+        <input type="file" id="hiddenCsvInput" accept=".csv" style="display:none;" />
+        <div id="autofill-errors" style="display:none"></div>
+      </div>
+    `;
+
+    const form = saveBtn.closest('form');
+    form?.parentNode.insertBefore(wrapper, form);
+
+    const $ = (id) => wrapper.querySelector(id);
+
+    $('#fillBtn').onclick = () => startFillingProcess();
+    $('#saveBtn').onclick = () => document.querySelector('input.btn-success[value="Save"]')?.click();
+    $('#nextBtn').onclick = () => document.querySelector('a[aria-label="Next page"]')?.click();
+    $('#loadCsvBtn').onclick = () => $('#hiddenCsvInput').click();
+    $('#hiddenCsvInput').onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file?.name.endsWith('.csv')) return alert('❌ Please select a valid CSV');
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        await chrome.storage.local.set({ autofillCSV: e.target.result });
+        alert('✅ CSV loaded. Starting autofill...');
+        startFillingProcess();
+      };
+      reader.readAsText(file);
+    };
+
+    $('#autoModeBtn').onclick = () => {
+      chrome.storage.local.get(['autoMode'], (current) => {
+        const newVal = !current.autoMode;
+        chrome.storage.local.set({ autoMode: newVal }, () => {
+          alert(`🧠 Auto Mode ${newVal ? 'Enabled' : 'Disabled'}`);
+          if (newVal) startFillingProcess();
+        });
+      });
+    };
+
+    console.log('[Autofill] ✅ Control panel injected');
+  }, 500);
+}
+
 function showBanner(message, color = '#2563eb') {
   let banner = document.getElementById('autofill-banner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'autofill-banner';
-    banner.style.cssText = `
-      background: ${color}; color: white; padding: 6px 12px;
-      font-weight: bold; border-radius: 6px; margin-bottom: 10px;
-    `;
-    document.getElementById('autofill-controls')?.prepend(banner);
-  }
-  banner.textContent = message;
+  if (banner) banner.style.background = color;
+  if (banner) banner.textContent = message;
 }
 
 function logError(name, field, expectedValue) {
@@ -41,13 +96,8 @@ function logError(name, field, expectedValue) {
 
 function updateErrorLogUI() {
   let box = document.getElementById('autofill-errors');
-  if (!box) {
-    box = document.createElement('div');
-    box.id = 'autofill-errors';
-    box.style.cssText = 'margin-top: 10px; max-height: 180px; overflow-y: auto; background: #fef2f2; border: 1px solid #fecaca; padding: 8px; border-radius: 6px; font-size: 13px; color: #7f1d1d;';
-    const panel = document.getElementById('autofill-controls');
-    panel?.appendChild(box);
-  }
+  if (!box) return;
+  box.style.display = 'block';
   const grouped = autofillErrors.reduce((acc, { name, field, value }) => {
     if (!acc[name]) acc[name] = [];
     acc[name].push(`↳ ${field}: "${value}" not found`);
@@ -60,7 +110,6 @@ function updateErrorLogUI() {
   };
 }
 
-// === Autofill Process ===
 async function startFillingProcess() {
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
   const getStorage = (keys) => new Promise((res) => chrome.storage.local.get(keys, res));
@@ -167,11 +216,8 @@ async function startFillingProcess() {
   }
 
   formBlocked = false;
-  form?.requestSubmit?.();
+  document.querySelector('input.btn-success[value="Save"]')?.click();
   showBanner(`✅ Autofill done! Errors: ${autofillErrors.length}`, autofillErrors.length ? '#b91c1c' : '#22c55e');
-
-  const log = (...args) => logDebug && console.log('[Autofill]', ...args);
-  log('💾 Submitted form');
 
   if (autoMode) {
     await sleep(2000);
@@ -185,5 +231,3 @@ async function startFillingProcess() {
     }
   }
 }
-
-// === Panel Injection stays the same ===
