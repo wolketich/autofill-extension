@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Autofill Settings</title>
+  <link rel="stylesheet" href="styles/popup.css" />
+</head>
+<body>
+  <div class="popup-container">
+    <h1>📝 CSV Autofill</h1>
+
+    <label for="csvFile" class="csv-label">Upload CSV File</label>
+    <input type="file" id="csvFile" accept=".csv" />
+
+    <div class="settings">
+      <label for="fillDelay">Delay per field (ms)</label>
+      <input type="number" id="fillDelay" min="0" value="250" />
+
+      <label for="logDebug">
+        <input type="checkbox" id="logDebug" checked />
+        Enable Logging
+      </label>
+    </div>
+
+    <div class="actions">
+      <button id="saveCsvBtn">💾 Save & Fill</button>
+      <button id="clearBtn" class="secondary">🧹 Clear Storage</button>
+    </div>
+
+    <p id="statusMessage"></p>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

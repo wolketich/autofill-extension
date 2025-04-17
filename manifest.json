@@ -1,0 +1,47 @@
+{
+    "manifest_version": 3,
+    "name": "CSV Autofill Assistant",
+    "description": "Autofill web forms using CSV data with Select2 and dropdown support. Built for reliability and performance.",
+    "version": "1.0.0",
+    "action": {
+      "default_popup": "popup.html",
+      "default_icon": {
+        "16": "assets/icon.png",
+        "48": "assets/icon.png",
+        "128": "assets/icon.png"
+      }
+    },
+    "permissions": [
+      "storage",
+      "scripting",
+      "activeTab"
+    ],
+    "host_permissions": [
+      "<all_urls>"
+    ],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "content_scripts": [
+      {
+        "matches": ["<all_urls>"],
+        "js": ["content.js"],
+        "run_at": "document_idle"
+      }
+    ],
+    "icons": {
+      "16": "assets/icon.png",
+      "48": "assets/icon.png",
+      "128": "assets/icon.png"
+    },
+    "web_accessible_resources": [
+      {
+        "resources": ["styles/popup.css"],
+        "matches": ["<all_urls>"]
+      }
+    ],
+    "options_ui": {
+      "page": "popup.html",
+      "open_in_tab": false
+    }
+  }

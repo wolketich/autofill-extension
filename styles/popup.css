@@ -1,0 +1,115 @@
+/* styles/popup.css */
+
+:root {
+    --bg: #f9fafb;
+    --blue: #2563eb;
+    --blue-dark: #1e40af;
+    --gray: #6b7280;
+    --border: #d1d5db;
+    --radius: 8px;
+    --shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    --font: 'Inter', sans-serif;
+  }
+  
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: var(--font);
+    background: var(--bg);
+    color: #111827;
+    width: 100%;
+    min-width: 320px;
+    max-width: 400px;
+    box-sizing: border-box;
+  }
+  
+  .popup-container {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  
+  h1 {
+    margin: 0;
+    font-size: 20px;
+    color: var(--blue);
+  }
+  
+  .csv-label {
+    font-weight: 600;
+    margin-bottom: 4px;
+    font-size: 14px;
+  }
+  
+  input[type="file"] {
+    padding: 6px 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: #fff;
+    font-size: 14px;
+  }
+  
+  .settings {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  
+  .settings label {
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .settings input[type="number"] {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  
+  .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  
+  button {
+    padding: 10px;
+    border: none;
+    border-radius: var(--radius);
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+    background-color: var(--blue);
+    color: white;
+    box-shadow: var(--shadow);
+    transition: background-color 0.2s ease;
+  }
+  
+  button:hover {
+    background-color: var(--blue-dark);
+  }
+  
+  button.secondary {
+    background-color: #e5e7eb;
+    color: #111827;
+  }
+  
+  button.secondary:hover {
+    background-color: #d1d5db;
+  }
+  
+  #statusMessage {
+    font-size: 13px;
+    color: var(--gray);
+    margin-top: 4px;
+    word-break: break-word;
+    min-height: 16px;
+  }
+  
