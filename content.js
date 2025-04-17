@@ -1,8 +1,10 @@
-// === content.js — Smart Autofill Extension ===
+// === content.js — Smart Autofill Extension with Banner + Error Log ===
 
 console.log('[Autofill] ✅ content.js loaded');
 
-// === Inject Panel UI with Buttons ===
+let autofillErrors = [];
+
+// === Inject Panel UI with Buttons + Banner ===
 injectAutofillPanel();
 
 // === Message Listener for popup trigger ===
@@ -18,6 +20,46 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+function showBanner(message, color = '#2563eb') {
+  let banner = document.getElementById('autofill-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'autofill-banner';
+    banner.style.cssText = `
+      background: ${color}; color: white; padding: 6px 12px;
+      font-weight: bold; border-radius: 6px; margin-bottom: 10px;
+    `;
+    document.getElementById('autofill-controls')?.prepend(banner);
+  }
+  banner.textContent = message;
+}
+
+function logError(name, field, expectedValue) {
+  autofillErrors.push({ name, field, value: expectedValue });
+  updateErrorLogUI();
+}
+
+function updateErrorLogUI() {
+  let box = document.getElementById('autofill-errors');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'autofill-errors';
+    box.style.cssText = 'margin-top: 10px; max-height: 180px; overflow-y: auto; background: #fef2f2; border: 1px solid #fecaca; padding: 8px; border-radius: 6px; font-size: 13px; color: #7f1d1d;';
+    const panel = document.getElementById('autofill-controls');
+    panel?.appendChild(box);
+  }
+  const grouped = autofillErrors.reduce((acc, { name, field, value }) => {
+    if (!acc[name]) acc[name] = [];
+    acc[name].push(`↳ ${field}: "${value}" not found`);
+    return acc;
+  }, {});
+  const output = Object.entries(grouped).map(([name, issues]) => `❌ ${name}\n  ${issues.join('\n  ')}`).join('\n\n');
+  box.innerHTML = `<pre style="white-space: pre-wrap">${output}</pre><button id="copyErrors" style="margin-top: 6px; padding: 4px 8px; background: #dc2626; color: white; border: none; border-radius: 4px; cursor: pointer;">📋 Copy Errors</button>`;
+  document.getElementById('copyErrors').onclick = () => {
+    navigator.clipboard.writeText(output).then(() => alert('✅ Errors copied to clipboard'));
+  };
+}
+
 // === Autofill Process ===
 async function startFillingProcess() {
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
@@ -26,6 +68,9 @@ async function startFillingProcess() {
   const { autofillCSV, logDebug, fillDelay = 250, autoMode = false } = await getStorage([
     'autofillCSV', 'logDebug', 'fillDelay', 'autoMode'
   ]);
+
+  autofillErrors = [];
+  showBanner('🔄 Autofill in progress...', '#2563eb');
 
   const log = (...args) => logDebug && console.log('[Autofill]', ...args);
   if (!autofillCSV) return alert('⚠️ No CSV loaded');
@@ -102,93 +147,43 @@ async function startFillingProcess() {
     const record = data[key];
     if (!record) continue;
 
-    await fillDropdown(row.querySelector('.child-type'), record['Child Type']);
+    const typeFilled = await fillDropdown(row.querySelector('.child-type'), record['Child Type']);
+    if (!typeFilled) logError(key, 'Child Type', record['Child Type']);
     await sleep(fillDelay);
-    await fillDropdown(row.querySelector('.child-pricing-group'), record['Pricing Group']);
+
+    const groupFilled = await fillDropdown(row.querySelector('.child-pricing-group'), record['Pricing Group']);
+    if (!groupFilled) logError(key, 'Pricing Group', record['Pricing Group']);
     await sleep(fillDelay);
-    await fillDropdown(row.querySelector('.child-pricing-options'), record['Pricing Option']);
+
+    const optionFilled = await fillDropdown(row.querySelector('.child-pricing-options'), record['Pricing Option']);
+    if (!optionFilled) logError(key, 'Pricing Option', record['Pricing Option']);
     await sleep(fillDelay);
 
     if (record['Discounts'] && record['Discounts'] !== '0') {
-      await fillSelect2(row.querySelector('td:nth-child(4) .select2-container'), record['Discounts']);
+      const discountFilled = await fillSelect2(row.querySelector('td:nth-child(4) .select2-container'), record['Discounts']);
+      if (!discountFilled) logError(key, 'Discounts', record['Discounts']);
       await sleep(fillDelay);
     }
   }
 
   formBlocked = false;
   form?.requestSubmit?.();
+  showBanner(`✅ Autofill done! Errors: ${autofillErrors.length}`, autofillErrors.length ? '#b91c1c' : '#22c55e');
+
+  const log = (...args) => logDebug && console.log('[Autofill]', ...args);
   log('💾 Submitted form');
 
   if (autoMode) {
-    await sleep(2000); // wait for reload
+    await sleep(2000);
     const nextLink = document.querySelector('a[aria-label="Next page"]');
     if (nextLink) {
       console.log('[Autofill] ➡️ Auto Mode: going to next page');
       nextLink.click();
     } else {
       chrome.storage.local.set({ autoMode: false });
-      console.log('[Autofill] ✅ Auto Mode complete — no more pages');
       alert('✅ All pages processed. Auto Mode complete.');
     }
   }
 }
 
-// === UI Panel with Controls ===
-function injectAutofillPanel() {
-  const existing = document.getElementById('autofill-controls');
-  if (existing) return;
-
-  const interval = setInterval(() => {
-    const saveBtn = document.querySelector('input.btn-success[value="Save"]');
-    if (!saveBtn) return;
-    clearInterval(interval);
-
-    const wrapper = document.createElement('div');
-    wrapper.id = 'autofill-controls';
-    wrapper.style.margin = '12px 0';
-
-    wrapper.innerHTML = `
-      <div style="border: 1px solid #ccc; padding: 10px; border-radius: 8px; background: #f9fafb">
-        <strong style="font-size: 16px; display: block; margin-bottom: 8px;">📋 Autofill Controls</strong>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button id="fillBtn" type="button">🔁 Fill Page</button>
-          <button id="saveBtn" type="button">💾 Save</button>
-          <button id="nextBtn" type="button">➡️ Next Page</button>
-          <button id="loadCsvBtn" type="button">📥 Load CSV</button>
-          <button id="autoModeBtn" type="button">🧠 Auto Mode</button>
-        </div>
-        <input type="file" id="hiddenCsvInput" accept=".csv" style="display:none;" />
-      </div>
-    `;
-
-    const form = saveBtn.closest('form');
-    form?.parentNode.insertBefore(wrapper, form);
-
-    const $ = (id) => wrapper.querySelector(id);
-
-    $('#fillBtn').onclick = () => startFillingProcess();
-    $('#saveBtn').onclick = () => document.querySelector('input.btn-success[value="Save"]')?.click();
-    $('#nextBtn').onclick = () => document.querySelector('a[aria-label="Next page"]')?.click();
-    $('#loadCsvBtn').onclick = () => $('#hiddenCsvInput').click();
-    $('#hiddenCsvInput').onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file?.name.endsWith('.csv')) return alert('❌ Please select a valid CSV');
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        await chrome.storage.local.set({ autofillCSV: e.target.result });
-        alert('✅ CSV loaded. Starting autofill...');
-        startFillingProcess();
-      };
-      reader.readAsText(file);
-    };
-    $('#autoModeBtn').onclick = async () => {
-      const current = await new Promise(res => chrome.storage.local.get(['autoMode'], res));
-      const newVal = !current.autoMode;
-      await chrome.storage.local.set({ autoMode: newVal });
-      alert(`🧠 Auto Mode ${newVal ? 'Enabled' : 'Disabled'}`);
-      if (newVal) startFillingProcess();
-    };
-
-    console.log('[Autofill] ✅ Control panel injected');
-  }, 500);
-}
+// === Panel Injection stays the same ===
